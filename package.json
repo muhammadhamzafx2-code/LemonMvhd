@@ -1,9 +1,10 @@
 {
   "name": "L3MON",
   "version": "1.0.0",
-  "description": "L3MON - Remote Android Managment Suite",
+  "description": "L3MON - Remote Android Management Suite",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
     "test": "node index.js"
   },
   "author": "D3VL",
@@ -11,9 +12,10 @@
   "dependencies": {
     "body-parser": "^1.19.0",
     "cookie-parser": "^1.4.4",
-    "ejs": "^2.6.2",
-    "express": "^4.17.1",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
     "lowdb": "^1.0.0",
-    "socket.io": "^2.2.0"
+    "socket.io": "^4.7.2",
+    "geoip-lite": "^1.4.2"
   }
 }
